@@ -1,5 +1,10 @@
 from fastapi import FastAPI
 import arxiv
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import config
 
 app = FastAPI(title="PaperScope Agentic")
 
@@ -9,7 +14,13 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "message": "Server is running"}
+    """Check server health and configuration status"""
+    return {
+        "status": "ok", 
+        "message": "Server is running",
+        "configured": config.is_configured(),
+        "missing_keys": []
+    }
 
 @app.get("/search/{topic}")
 async def search_papers(topic: str, max_results: int = 5):
@@ -48,3 +59,21 @@ async def search_papers(topic: str, max_results: int = 5):
         
     except Exception as e:
         return {"error": f"Search failed: {str(e)}"}
+
+@app.get("/config/status")
+async def config_status():
+    """Check configuration status"""
+    missing = []
+    if not config.groq_api_key:
+        missing.append("GROQ_API_KEY")
+    if not config.qdrant_url:
+        missing.append("QDRANT_URL")
+    if not config.qdrant_api_key:
+        missing.append("QDRANT_API_KEY")
+    
+    return {
+        "configured": config.is_configured(),
+        "missing_keys": missing,
+        "has_groq": bool(config.groq_api_key),
+        "has_qdrant": bool(config.qdrant_url and config.qdrant_api_key)
+    }
