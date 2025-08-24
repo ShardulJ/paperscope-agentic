@@ -3,6 +3,8 @@ import arxiv
 import sys
 import os
 
+from multiprocess import context
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import config
 from storage import PaperStorage
@@ -10,13 +12,13 @@ from qa_system import QASystem
 
 app = FastAPI(title="PaperScope Agentic")
 
-# Initialize storage (will fail if not configured)
 storage = None
 try:
     storage = PaperStorage()
 except Exception as e:
     print(f"Storage not initialized: {e}")
 
+qa_system = None
 try:
     qa_system = QASystem()
 except Exception as e:
@@ -29,18 +31,26 @@ async def root():
 @app.get("/health")
 async def health():
     storage_status = "not_configured"
+    qa_status = "not_configured"
     if storage:
         try:
             info = storage.get_collection_info()
             storage_status = "connected" if "error" not in info else "error"
         except:
             storage_status = "error"
+
+    if qa_system:
+        try:
+            qa_status = "connected" if qa_system.test_connection() else "error"
+        except:
+            qa_status = "error"
     
     return {
         "status": "ok", 
         "message": "Server is running",
         "configured": config.is_configured(),
-        "storage": storage_status
+        "storage": storage_status,
+        "qa_system": qa_status
     }
 
 @app.get("/search/{topic}")
@@ -125,7 +135,6 @@ async def search_stored_papers(query: str, limit: int = 5):
 
 @app.get("/storage/info")
 async def get_storage_info():
-    """Get information about the storage collection"""
     if not storage:
         return {"error": "Storage not configured"}
     
@@ -137,7 +146,6 @@ async def get_storage_info():
 
 @app.get("/config/status")
 async def config_status():
-    """Check configuration status"""
     missing = []
     if not config.groq_api_key:
         missing.append("GROQ_API_KEY")
@@ -163,16 +171,33 @@ async def ask_question(request: dict):
         if not question:
             return {"error": "Question is needed."}
 
-            result = qa_system.answer_question(question, max_content=3)
+        result = qa_system.answer_question(question, max_content=3)
 
-            return {
-                "question": question,
-                "answer": result['answer'],
-                "sources_used": result['context_user'],
-                "sources": result['sources'],
-                "error": result['error']
-            }
+        return {
+            "question": question,
+            "answer": result['answer'],
+            "sources_used": result['context_user'],
+            "sources": result['sources'],
+            "error": result['error']
+        }
         
     except Exception as e:
-        return {"error": "failed : str(e)"}
+        return {"error": f"failed : {str(e)}" }
+
+@app.get("/qa/context")
+async def get_qa_context(question: str, limit: int = 3):
+    if not qa_system:
+        return {"error": "QA system is not configured."}
+
+    try:
+        context_papers = qa_system.get_context_for_question(question, limit)
+
+        return {
+            "question": question,
+            "context_papers": len(context_papers),
+            "papers": context_papers
+        }
+    
+    except Exception as e:
+        return {"error" : f"failed : {str(e)}" }
 
