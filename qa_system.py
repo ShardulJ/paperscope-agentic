@@ -84,4 +84,10 @@ class QASystem:
             return []
 
     def test_connection(self) -> bool:
-        pass
+        try:
+            test_response = self.llm.invoke("Say 'Hello' if you can hear me.")
+            return "Hello" in str(test_response)
+        except Exception as e:
+            print(f"Connection failed: {e}")
+            return
+
