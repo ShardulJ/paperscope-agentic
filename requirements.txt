@@ -3,3 +3,7 @@ uvicorn
 requests
 python-dotenv
 arxiv
+pydantic
+qdrant-client
+sentence-transformers
+langchain-groq

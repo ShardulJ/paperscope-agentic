@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from sentence_transformers import SentenceTransformer
-from src.paperscope.config import config
+from config import config
 
 class PaperStorage:
     
